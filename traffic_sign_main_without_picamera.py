@@ -41,7 +41,7 @@ counter = 32 # Below 32 everything in ASCII is gibberish
 
 
 
-cap = cv2.VideoCapture(0) # moi crÃ©e obj video
+cap = cv2.VideoCapture(1) # moi crÃ©e obj video
 
 
 green = (0, 255, 0)
@@ -65,6 +65,11 @@ def overlay_mask(mask, image):
 def find_biggest_contour(image):
     # Copy
     image = image.copy()
+    if(image.all()):
+        print("yes")
+    else:
+        print("no no")
+    print(image)
     #input, gives all the contours, contour approximation compresses horizontal,
     #vertical, and diagonal segments and leaves only their end points. For example,
     #an up-right rectangular contour is encoded with 4 points.
@@ -72,14 +77,20 @@ def find_biggest_contour(image):
     #It has as many elements as the number of contours.
     #we dont need it
     contours, hierarchy = cv2.findContours(image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    #print(contours)
+    print(contours)
 
     # Isolate largest contour
     contour_sizes = [(cv2.contourArea(contour), contour) for contour in contours]
-    biggest_contour = max(contour_sizes, key=lambda x: x[0])[1]
+    try:
+        biggest_contour = max(contour_sizes, key=lambda x: x[0])[1]
+        mask = np.zeros(image.shape, np.uint8)
+        cv2.drawContours(mask, [biggest_contour], -1, 255, -1)
+    except ValueError:
+        print("Empty contours")
+        #biggest_contour = [[0, 0],[2, 0],[2, 2],[0, 2]]
+        biggest_contour = np.asarray(None)
+        mask = np.zeros(image.shape, np.uint8)
 
-    mask = np.zeros(image.shape, np.uint8)
-    cv2.drawContours(mask, [biggest_contour], -1, 255, -1)
     return biggest_contour, mask
 
 def circle_contour(image, contour):
@@ -152,6 +163,7 @@ def find_strawberry(image):
 
     # Find biggest strawberry
     #get back list of segmented strawberries and an outline for the biggest one
+    print(mask_clean)
     big_strawberry_contour, mask_strawberries = find_biggest_contour(mask_clean)
 
     # Overlay cleaned mask on image
@@ -160,49 +172,13 @@ def find_strawberry(image):
 
     # Circle biggest strawberry
     #circle the biggest one
-    circled = circle_contour(overlay, big_strawberry_contour)
-    show(circled)
-
-##
-##
-##    print(big_strawberry_contour[:,:,0])
-##    print(mask_strawberries)
-##
-##    max_x_value = np.max(big_strawberry_contour[:,:,0])
-##    min_x_value = np.min(big_strawberry_contour[:,:,0])
-##    max_y_value = np.max(big_strawberry_contour[:,:,1])
-##    min_y_value = np.min(big_strawberry_contour[:,:,1])
-##    print(max_x_value)
-##    print(min_x_value)
-##    print(max_y_value)
-##    print(min_y_value)
-##    print(image.shape)
-##    #cv2.rectangle(mask_strawberries , (10, 10), (100, 100), (155, 0, 0), 5)
-##    cv2.rectangle(image , (min_x_value, min_y_value), (max_x_value, max_y_value), (155, 0, 0), 10)
-##    cv2.line(image , (min_x_value, max_x_value), (min_y_value, max_y_value), (155, 0, 0), 10)
-##    plt.imshow(image, cmap='gray', interpolation='bicubic')
-##    plt.show()
-
-    #big_strawberry_contour.reshape([157,2])
-##    print("La matrice complete")
-##    print(big_strawberry_contour)
-##    print("colonne 1")
-##    print(big_strawberry_contour[1:])(2)
-##    print("colonne 2")
-##    print(big_strawberry_contour[:1])
-##    print("Taille de la matrice")
-    #big_strawberry_contour.reshape(278, 2)
-    #rect = cv2.minAreaRect(big_strawberry_contour)
-
-    ##    plt.plot([min_x_value, max_x_value], [min_y_value, max_y_value], 'c', linewidth=5)
-##    cropped_img = circled[min_x_value:max_x_value, min_y_value:max_y_value]
-##    print(cropped_img)
-##    plt.plot(cropped_img, cmap='gray', interpolation='bicubic')
-##    plt.show()
-
-
-    #we're done, convert back to original color scheme
-    bgr = cv2.cvtColor(circled, cv2.COLOR_RGB2BGR)
+    if(big_strawberry_contour.all()):
+        circled = circle_contour(overlay, big_strawberry_contour)
+        show(circled)
+        #we're done, convert back to original color scheme
+        bgr = cv2.cvtColor(circled, cv2.COLOR_RGB2BGR)
+    else:
+        bgr = image
 
     return bgr, mask_strawberries, big_strawberry_contour
 
@@ -222,12 +198,14 @@ def detect(cap):
     ###########################################
     #Cropping image :: Rognage de l'image
     ###########################################
-    max_x_value = np.max(big_panel_contour[:,:,0])
-    min_x_value = np.min(big_panel_contour[:,:,0])
-    max_y_value = np.max(big_panel_contour[:,:,1])
-    min_y_value = np.min(big_panel_contour[:,:,1])
-
-    cropped_img = result[min_y_value:max_y_value, min_x_value:max_x_value]
+    if(big_panel_contour.all()):
+        max_x_value = np.max(big_panel_contour[:,:,0])
+        min_x_value = np.min(big_panel_contour[:,:,0])
+        max_y_value = np.max(big_panel_contour[:,:,1])
+        min_y_value = np.min(big_panel_contour[:,:,1])
+        cropped_img = result[min_y_value:max_y_value, min_x_value:max_x_value]
+    else:
+        cropped_img = result
 
     # Processing the ROI using CNN DeepLearning
     image = cropped_img
@@ -244,11 +222,14 @@ def detect(cap):
     # load the image using OpenCV, resize it, and draw the label
 	# on it
     image = img
-    image = imutils.resize(image, width=128)
-    cv2.putText(image, label, (5, 15), cv2.FONT_HERSHEY_SIMPLEX,
+    image = imutils.resize(image, width=256) // 128
+    cv2.putText(result, label, (5, 15), cv2.FONT_HERSHEY_SIMPLEX,
 		0.45, (0, 0, 255), 2)
     #cv2.putText(cimg,'YELLOW',(i[0], i[1]), font, 1,(255,0,0),2,cv2.LINE_AA)
-    cv2.imshow('detected results', image)
+    cv2.imshow('Original image', image)
+    cv2.imshow('Panel Detection', result)
+    cv2.imshow('Panel Classification', cropped_img)
+
     ##cv2.imwrite(path+'//result//'+file, cimg)
     # cv2.imshow('maskr', maskr)
     # cv2.imshow('maskg', maskg)
